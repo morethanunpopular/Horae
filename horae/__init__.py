@@ -23,7 +23,6 @@ class cgroup(object):
 
 
   def setup(self):
-
     # Check if cgroup already exists or not
     if not self.exists:
       # Set up cgroup
@@ -36,6 +35,16 @@ class cgroup(object):
       with open("{}/memory.limit_in_bytes".format(self.memory_path), 'w')  as fh:
         fh.truncate()
         fh.write(str(self.memory).strip())
+ 
+  @property
+  def tasks(self):
+    tasks = []
+    for path in (self.cpu_path, self.memory_path):
+      tasks_file = "{}/tasks".format(path)
+      with open(tasks_file, 'r') as fh:
+        for line in fh.readlines():
+          tasks.append(line.strip())
+    return set(tasks)
 
   @property 
   def exists(self):
@@ -56,18 +65,19 @@ class cgroup(object):
     os.rmdir(self.cpu_path)
     os.rmdir(self.memory_path)
 
-  def execute(self, command):
+  def execute(self, command, join=True):
     process = subprocess.Popen(command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     self.add_pid(process.pid)
-    line = ''
     output = []
-    for c in iter(lambda: process.stdout.read(1), b""):
-        line += c.decode()
-        if c.decode() == '\n':
-          output.append(line)
-          print(line)
-          line = ''
-    print(process.returncode)
+    if join:
+      line = ''
+      for c in iter(lambda: process.stdout.read(1), b""):
+          line += c.decode()
+          if c.decode() == '\n':
+            output.append(line)
+            print(line)
+            line = ''
+      print(process.returncode)
     return output
  
   def add_pid(self, pid):
