@@ -1,6 +1,6 @@
 
 # Horae
-Horae is simple HPC-style job queue written in python, built on top of celery. In short, you submit a task to a celery job queue, which then gets processed by an apropriate worker. The worker creates a cgroup to run the processes for your jon inside, allowing for CPU and Memory limits to be set and for  isolation between jobs. 
+Horae is simple HPC-style job queue written in python, built on top of celery. In short, you submit a task to a celery job queue, which then gets processed by an apropriate worker. The worker then creates a cgroup to run the processes for your jon inside, allowing for CPU and Memory limits to be set and for isolation between jobs. Once the cgroup is created, the defined work is executed and added to that cgroup.
 
 
 # Installation
