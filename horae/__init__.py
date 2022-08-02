@@ -4,6 +4,8 @@ import uuid
 import shutil
 import subprocess
 import celery
+import time
+import argparse
 
 app = celery.Celery('tasks', broker='pyamqp://guest@localhost//', backend='rpc://')
 
@@ -68,17 +70,7 @@ class cgroup(object):
   def execute(self, command, join=True):
     process = subprocess.Popen(command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     self.add_pid(process.pid)
-    output = []
-    if join:
-      line = ''
-      for c in iter(lambda: process.stdout.read(1), b""):
-          line += c.decode()
-          if c.decode() == '\n':
-            output.append(line)
-            print(line)
-            line = ''
-      print(process.returncode)
-    return output
+    return process
  
   def add_pid(self, pid):
     for path in (self.cpu_path, self.memory_path):
@@ -94,27 +86,59 @@ class Job(object):
     self.command = command
     self.cpu = cpu
     self.memory = memory
-    
     if name:
       self.job_name = name
     else:
       self.job_name = uuid.uuid4()
-  def _setup(self):
-    pass
 
-  def _teardown(self):
-    pass
+    self.job_directory = '/opt/horae/{}'.format(self.job_name) 
 
-  def run(self):
+  def setup(self):
+      os.makedirs(self.job_directory)
+
+  def teardown(self):
+    shutil.rmtree(self.job_directory)
+
+  def run(self, join=True):
     with cgroup(self.cpu, self.memory, self.job_name) as c:
-      return c.execute(self.command)
+      process =  c.execute(self.command)
+      if join:
+        line = ''
+        for c in iter(lambda: process.stdout.read(1), b""):
+            line += c.decode()
+            if c.decode() == '\n':
+              yield line
+              line = ''
 
 @app.task
 def hrun(command, cpu, memory):
     j = Job(command, cpu, memory,hrun.request.id)
-    return j.run()
+    output = {}
+    log_index = 0
+    for line in j.run():
+      output[log_index] = line
+      hrun.update_state(state='OUTPUT', meta={'type': 'log_line', 'content': output, "index": log_index})
+      log_index += 1
+    return output 
 
-
-
-if __name__ == '__main__':
-   hrun.delay('/home/gcampbell/Horae/test.sh')
+def hrun_cli():
+  parser = argparse.ArgumentParser(description='Execute a command on a Horae Queue')
+  parser.add_argument('command', help="Command to run")
+  parser.add_argument('--cpu', help="cpu cycles to allocate in MHz", default=1000)
+  parser.add_argument('--memory', help="memory to allocated in MB", default=2000)
+  args = parser.parse_args()
+  result = hrun.delay(args.command, args.cpu, int(args.memory))
+  log_index = 0
+  while True:
+    if result.info:
+      if result.info.get('index'):
+        if result.info.get('index') != log_index:
+          for i in range(log_index, int(result.info['index'])):
+            sys.stdout.write(result.info['content'][str(i)])
+          log_index = result.info['index']
+    if result.ready():
+      break
+  time.sleep(.1)
+  output = result.get()
+  for i in range(log_index, len(output.keys())):
+    print(output[str(i)])
