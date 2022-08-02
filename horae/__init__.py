@@ -7,7 +7,7 @@ import celery
 import time
 import argparse
 
-app = celery.Celery('tasks', broker='pyamqp://guest@localhost//', backend='rpc://')
+app = celery.Celery('tasks', broker=os.environ.get("BROKER_ADDR"), backend='rpc://')
 
 class cgroup(object):
 

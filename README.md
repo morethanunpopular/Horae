@@ -2,6 +2,19 @@
 # Horae
 Horae is simple HPC-style job queue written in python, built on top of celery. In short, you submit a task to a celery job queue, which then gets executed by an apropriate celery worker, inside of a cgroup for setting CPU and memory limits.
 
+
+# Isntallation
+
+- clone this repo on each node you wish to be in the cluster
+- run `pip install .` from inide this repository 
+- launch a rabitmq instance somewhere asscessible to all worked
+- On all Nodes you wish to be Horae workers, run:
+```
+BORKER_ADDR=pyamqp://guest@localhost// sudo  /usr/local/bin/celery -A horae  worker --loglevel=INFO
+```
+
+*note* make sure to replace the RabbitMQ connection string in the above command with the apropriate one for your environment
+
 # Usage
 
 ## hrun
