@@ -1,32 +1,44 @@
 
 # Horae
-Horae is simple HPC-style job queue written in python, built on top of celery. In short, you submit a task to a celery job queue, which then gets executed by an apropriate celery worker, inside of a cgroup for setting CPU and memory limits.
+Horae is simple HPC-style job queue written in python, built on top of celery. In short, you submit a task to a celery job queue, which then gets processed by an apropriate worker. The worker creates a cgroup to run the processes for your jon inside, allowing for CPU and Memory limits to be set and for  isolation between jobs. 
 
 
-# Isntallation
+# Installation
 
 - clone this repo on each node you wish to be in the cluster
-- run `pip install .` from inide this repository 
+- run `pip3 install .` from inide this repository 
 - launch a rabitmq instance somewhere asscessible to all worked
 - On all Nodes you wish to be Horae workers, run:
 ```
 BORKER_ADDR=pyamqp://guest@localhost// sudo  /usr/local/bin/celery -A horae  worker --loglevel=INFO
 ```
 
-*note* make sure to replace the RabbitMQ connection string in the above command with the apropriate one for your environment
+*note* make sure to replace the RabbitMQ connection string in the above command with the apropriate one for your environment.
+
+Then export the RABBITMQ connection information:
+
+```
+export BORKER_ADDR=pyamqp://guest@localhost//
+```
+
+And take this bad boy for a spin:
+```
+$ hrun "echo hello world" 
+hello world
+```
 
 # Usage
 
 ## hrun
 
-hrun is a simple CLI utility for running commands on the Horae cluster. You can optionally specify the CPU and memory limits to place on the job:
+hrun is a simple CLI utility for running commands on the Horae cluster:
 
 ```
 $ hrun "echo hello world" 
 hello world
 ```
 
-or with memory and CPU limits:
+You can optionally specify the CPU and memory limits to place on the job:
 ```
 hrun --cpu 1000 --memory 1000 "vmstat -S M 1 10"
 procs -----------memory---------- ---swap-- -----io---- -system-- ------cpu-----
@@ -44,7 +56,7 @@ procs -----------memory---------- ---swap-- -----io---- -system-- ------cpu-----
 ```
 
 
-There s also an `hrun` function, which is a simple wrapper function used for submitting jobs to the celery queue:
+There is also an `hrun` function, which is a simple wrapper function used for submitting jobs to the celery queue:
 ```
 >>> from horae import hrun
 >>> result = hrun.delay("vmstat -S M 1 2", 1000, 1000)
@@ -57,7 +69,7 @@ There s also an `hrun` function, which is a simple wrapper function used for sub
 ('3', ' 4  0    400   2489    251  17983    0    0    16 252252 12303 11258 10 16 66  7  0\n')
 >>> 
 ```
-Note how in the above, the function returns a dictionary, which each key  being a number. This indicates the order in which the output was generated, and can be used in reconstructing the output.
+Note how in the above, the function returns a dictionary, which each key being a number. This indicates the order in which the output was generated, and can be used in reconstructing the output.
 
 ## Job
 the `Job` class represents a Job to be executed in Horae.
